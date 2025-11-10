@@ -1,0 +1,244 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Table, Button, Modal, Form, Input, message, Popconfirm, InputNumber } from 'antd';
+import { PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import Alert from 'antd/es/alert/Alert';
+
+const AdvancedCrud = () => {
+  const router = useRouter();
+  const [students, setStudents] = useState([]);
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [form] = Form.useForm();
+
+  const columns = [
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
+    { title: 'Name', dataIndex: 'name', key: 'name' },
+    { title: 'Major', dataIndex: 'major', key: 'major' },
+    { title: 'Age', dataIndex: 'age', key: 'age' },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (text, record) => (
+        <>
+          <Button
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+            style={{ marginRight: 8 }}
+          >
+            Edit
+          </Button>
+          <Popconfirm
+            title="Are you sure to delete this student?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button icon={<DeleteOutlined />} danger>
+              Delete
+            </Button>
+          </Popconfirm>
+        </>
+      ),
+    },
+  ];
+
+  const fetchStudents = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/students', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Failed to fetch students');
+      const data = await response.json();
+      setStudents(data);
+      setFilteredStudents(data);
+      console.log('Student data refreshed.');
+    } catch (error) {
+      console.error('Fetch Error:', error);
+      message.error('Failed to load student data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  useEffect(() => {
+    if (selectedStudent) {
+      form.setFieldsValue({
+        name: selectedStudent.name,
+        major: selectedStudent.major,
+        age: selectedStudent.age,
+      });
+    }
+  }, [selectedStudent, form]);
+
+  useEffect(() => {
+    const filtered = students.filter(student =>
+      student.name.toLowerCase().includes(searchText.toLowerCase())
+    );
+    setFilteredStudents(filtered);
+  }, [searchText, students]);
+
+  const handlePostStudent = async (values) => {
+    try {
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+
+      if (!response.ok) throw new Error('Failed to add student');
+
+      console.log('Student added successfully!');
+      setIsModalVisible(false);
+      alert('Student added successfully!');
+      setSelectedStudent(null);
+      form.resetFields();
+      fetchStudents();
+    } catch (error) {
+      console.error('POST Error:', error);
+      message.error('Error adding new student.');
+    }
+  };
+
+  const handleUpdateStudent = async (values) => {
+    try {
+      const response = await fetch(`/api/students/${selectedStudent.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+
+      if (!response.ok) throw new Error('Failed to update student');
+
+      console.log('Student updated successfully!');
+      message.success('Student updated successfully!');
+      setIsModalVisible(false);
+      setSelectedStudent(null);
+      form.resetFields();
+      fetchStudents(); // Refresh after update
+    } catch (error) {
+      console.error('PUT Error:', error);
+      message.error('Error updating student.');
+    }
+  };
+
+  const handleEdit = (student) => {
+    setSelectedStudent(student);
+    setIsModalVisible(true);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const response = await fetch(`/api/students/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete student');
+
+      console.log('Student deleted successfully!');
+      message.info('Deleted Successfully');
+      fetchStudents();
+    } catch (error) {
+      console.error('DELETE Error:', error);
+      message.error('Error deleting student.');
+    }
+  };
+
+  return (
+    <div style={{ padding: 24 }}>
+      <h1>👨‍🎓 Student Management (App Router API Test)</h1>
+      <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Input
+          placeholder="Search by name"
+          prefix={<SearchOutlined />}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{ width: 200 }}
+        />
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => setIsModalVisible(true)}
+        >
+          Add New Student
+        </Button>
+        <Button
+          icon={<ReloadOutlined />}
+          onClick={fetchStudents}
+          loading={loading}
+        >
+          Refresh Data
+        </Button>
+      </div>
+
+      <Table
+        columns={columns}
+        dataSource={filteredStudents}
+        rowKey="id"
+        loading={loading}
+        pagination={false}
+        bordered
+      />
+
+      <Modal
+        title={selectedStudent ? "Edit Student" : "Add New Student"}
+        open={isModalVisible}
+        onCancel={() => {
+          setIsModalVisible(false);
+          setSelectedStudent(null);
+          form.resetFields();
+        }}
+        footer={null}
+        destroyOnHidden={true}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={selectedStudent ? handleUpdateStudent : handlePostStudent}
+          autoComplete="off"
+        >
+          <Form.Item
+            label="Name"
+            name="name"
+            rules={[{ required: true, message: 'Please input the student name!', type: 'string'  }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Major"
+            name="major"
+            rules={[{ required: true, message: 'Please input the student major!', type: 'string' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Age"
+            name="age"
+            rules={[{ required: true, message: 'Please input the student age!', type: 'number', min: 1 }]}
+          >
+            <InputNumber />
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
+              {selectedStudent ? "Update Student" : "Add Student"}
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
+};
+
+export default AdvancedCrud;
