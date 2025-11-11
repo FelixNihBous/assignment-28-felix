@@ -1,26 +1,35 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
-const API_URL = 'https://course.summitglobal.id/students';
+const dataFile = path.join(process.cwd(), 'data.json');
 
-export async function GET() {
-  try {
-    const response = await fetch(API_URL);
-    if (!response.ok) {
-      throw new Error('Failed to fetch students');
-    }
-    const data = await response.json();
-    return NextResponse.json(data, { status: 200 });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 200 }); // As per requirement, return 200 even on error?
+function loadData() {
+  if (fs.existsSync(dataFile)) {
+    const data = fs.readFileSync(dataFile, 'utf8');
+    return JSON.parse(data);
   }
+  return { students: [] };
+}
+
+function saveData(data) {
+  fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
+}
+
+export async function GET(request) {
+  const data = loadData();
+  return NextResponse.json(data.students, { status: 200 });
 }
 
 export async function POST(request) {
   try {
+    const data = loadData();
     const body = await request.json();
-    // Simulate success since external API may not support POST
-    return NextResponse.json({ message: 'Student added successfully', ...body }, { status: 200 });
+    const newId = data.students.length > 0 ? Math.max(...data.students.map(s => s.id)) + 1 : 1;
+    data.students.push({ id: newId, ...body });
+    saveData(data);
+    return NextResponse.json({ id: newId, ...body }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 200 });
+    return NextResponse.json({ message: 'Error adding student', error: error.message }, { status: 400 });
   }
 }
