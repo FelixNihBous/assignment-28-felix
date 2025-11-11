@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Table, Button, Modal, Form, Input, message, Popconfirm, InputNumber } from 'antd';
 import { PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
-import Alert from 'antd/es/alert/Alert';
 
 const AdvancedCrud = () => {
   const router = useRouter();
@@ -20,7 +19,7 @@ const AdvancedCrud = () => {
     { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
     { title: 'Name', dataIndex: 'name', key: 'name' },
     { title: 'Major', dataIndex: 'major', key: 'major' },
-    { title: 'Age', dataIndex: 'age', key: 'age' },
+    { title: 'Class', dataIndex: 'class_name', key: 'class_name' },
     {
       title: 'Actions',
       key: 'actions',
@@ -54,8 +53,9 @@ const AdvancedCrud = () => {
       const response = await fetch('/api/students', { cache: 'no-store' });
       if (!response.ok) throw new Error('Failed to fetch students');
       const data = await response.json();
-      setStudents(data);
-      setFilteredStudents(data);
+      const studentsData = data.body?.data || data;
+      setStudents(studentsData);
+      setFilteredStudents(studentsData);
       console.log('Student data refreshed.');
     } catch (error) {
       console.error('Fetch Error:', error);
@@ -74,7 +74,7 @@ const AdvancedCrud = () => {
       form.setFieldsValue({
         name: selectedStudent.name,
         major: selectedStudent.major,
-        age: selectedStudent.age,
+        class_name: selectedStudent.class_name,
       });
     }
   }, [selectedStudent, form]);
@@ -100,7 +100,7 @@ const AdvancedCrud = () => {
 
       console.log('Student added successfully!');
       setIsModalVisible(false);
-      alert('Student added successfully!');
+      message.success('Student added successfully!');
       setSelectedStudent(null);
       form.resetFields();
       fetchStudents();
@@ -148,7 +148,7 @@ const AdvancedCrud = () => {
       if (!response.ok) throw new Error('Failed to delete student');
 
       console.log('Student deleted successfully!');
-      message.info('Deleted Successfully');
+      message.success('Deleted Successfully');
       fetchStudents();
     } catch (error) {
       console.error('DELETE Error:', error);
@@ -224,11 +224,11 @@ const AdvancedCrud = () => {
             <Input />
           </Form.Item>
           <Form.Item
-            label="Age"
-            name="age"
-            rules={[{ required: true, message: 'Please input the student age!', type: 'number', min: 1 }]}
+            label="Class"
+            name="class_name"
+            rules={[{ required: true, message: 'Please input the student class!', type: 'string' }]}
           >
-            <InputNumber />
+            <Input />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
