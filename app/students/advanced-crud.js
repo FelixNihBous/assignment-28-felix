@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Table, Button, Modal, Form, Input, message, Popconfirm, InputNumber } from 'antd';
+import { Table, Button, Modal, Form, Input, Popconfirm, InputNumber, message } from 'antd';
 import { PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 
 const AdvancedCrud = () => {
+  const [messageApi, contextHolder] = message.useMessage();
   const router = useRouter();
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
@@ -59,7 +60,7 @@ const AdvancedCrud = () => {
       console.log('Student data refreshed.');
     } catch (error) {
       console.error('Fetch Error:', error);
-      message.error('Failed to load student data.');
+      messageApi.error('Failed to load student data.');
     } finally {
       setLoading(false);
     }
@@ -96,41 +97,54 @@ const AdvancedCrud = () => {
         body: JSON.stringify(values),
       });
 
-      if (!response.ok) throw new Error('Failed to add student');
+      if (!response.ok) {
+        const errorData = await response.json();
+        messageApi.error(errorData.message || 'Failed to add student');
+        return;
+      }
 
       console.log('Student added successfully!');
       setIsModalVisible(false);
-      message.success('Student added successfully!');
+      messageApi.success('Student added successfully!');
       setSelectedStudent(null);
       form.resetFields();
       fetchStudents();
     } catch (error) {
       console.error('POST Error:', error);
-      message.error('Error adding new student.');
+      messageApi.error('An unexpected error occurred while adding the student.');
     }
   };
 
   const handleUpdateStudent = async (values) => {
     try {
+      const payload = {
+        name: values.name,
+        major: values.major,
+        class_name: values.class_name,
+      };
       const response = await fetch(`/api/students/${selectedStudent.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error('Failed to update student');
+      if (!response.ok) {
+        const errorData = await response.json();
+        messageApi.error(errorData.message || 'Failed to update student');
+        return;
+      }
 
       console.log('Student updated successfully!');
-      message.success('Student updated successfully!');
+      messageApi.success('Student updated successfully!');
       setIsModalVisible(false);
       setSelectedStudent(null);
       form.resetFields();
       fetchStudents(); // Refresh after update
     } catch (error) {
       console.error('PUT Error:', error);
-      message.error('Error updating student.');
+      messageApi.error('An unexpected error occurred while updating the student.');
     }
   };
 
@@ -145,99 +159,106 @@ const AdvancedCrud = () => {
         method: 'DELETE',
       });
 
-      if (!response.ok) throw new Error('Failed to delete student');
+      if (!response.ok) {
+        const errorData = await response.json();
+        messageApi.error(errorData.message || 'Failed to delete student');
+        return;
+      }
 
       console.log('Student deleted successfully!');
-      message.success('Deleted Successfully');
+      messageApi.success('Deleted Successfully');
       fetchStudents();
     } catch (error) {
       console.error('DELETE Error:', error);
-      message.error('Error deleting student.');
+      messageApi.error('An unexpected error occurred while deleting the student.');
     }
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1>👨‍🎓 Student Management (App Router API Test)</h1>
-      <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <Input
-          placeholder="Search by name"
-          prefix={<SearchOutlined />}
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: 200 }}
-        />
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setIsModalVisible(true)}
-        >
-          Add New Student
-        </Button>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={fetchStudents}
+    <>
+      {contextHolder}
+      <div style={{ padding: 24 }}>
+        <h1>👨‍🎓 Student Management (App Router API Test)</h1>
+        <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Input
+            placeholder="Search by name"
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{ width: 200 }}
+          />
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setIsModalVisible(true)}
+          >
+            Add New Student
+          </Button>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={fetchStudents}
+            loading={loading}
+          >
+            Refresh Data
+          </Button>
+        </div>
+
+        <Table
+          columns={columns}
+          dataSource={filteredStudents}
+          rowKey="id"
           loading={loading}
+          pagination={false}
+          bordered
+        />
+
+        <Modal
+          title={selectedStudent ? "Edit Student" : "Add New Student"}
+          open={isModalVisible}
+          onCancel={() => {
+            setIsModalVisible(false);
+            setSelectedStudent(null);
+            form.resetFields();
+          }}
+          footer={null}
+          destroyOnHidden={true}
         >
-          Refresh Data
-        </Button>
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={selectedStudent ? handleUpdateStudent : handlePostStudent}
+            autoComplete="off"
+          >
+            <Form.Item
+              label="Name"
+              name="name"
+              rules={[{ required: true, message: 'Please input the student name!', type: 'string'  }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              label="Major"
+              name="major"
+              rules={[{ required: true, message: 'Please input the student major!', type: 'string' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              label="Class"
+              name="class"
+              rules={[{ required: true, message: 'Please input the student class!', type: 'string' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item>
+              <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
+                {selectedStudent ? "Update Student" : "Add Student"}
+              </Button>
+            </Form.Item>
+          </Form>
+        </Modal>
       </div>
-
-      <Table
-        columns={columns}
-        dataSource={filteredStudents}
-        rowKey="id"
-        loading={loading}
-        pagination={false}
-        bordered
-      />
-
-      <Modal
-        title={selectedStudent ? "Edit Student" : "Add New Student"}
-        open={isModalVisible}
-        onCancel={() => {
-          setIsModalVisible(false);
-          setSelectedStudent(null);
-          form.resetFields();
-        }}
-        footer={null}
-        destroyOnHidden={true}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={selectedStudent ? handleUpdateStudent : handlePostStudent}
-          autoComplete="off"
-        >
-          <Form.Item
-            label="Name"
-            name="name"
-            rules={[{ required: true, message: 'Please input the student name!', type: 'string'  }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="Major"
-            name="major"
-            rules={[{ required: true, message: 'Please input the student major!', type: 'string' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="Class"
-            name="class_name"
-            rules={[{ required: true, message: 'Please input the student class!', type: 'string' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
-              {selectedStudent ? "Update Student" : "Add Student"}
-            </Button>
-          </Form.Item>
-        </Form>
-      </Modal>
-    </div>
+    </>
   );
 };
 
